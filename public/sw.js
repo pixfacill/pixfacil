@@ -1,0 +1,56 @@
+const CACHE_NAME = "mercado-alternativo-pix-v1";
+const APP_ROUTES = ["/caixa", "/display", "/manifest.json", "/icon.svg"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await Promise.all(APP_ROUTES.map(async (route) => {
+        try {
+          const response = await fetch(route, { cache: "reload" });
+          if (response.ok) await cache.put(route, response);
+        } catch {
+          // A instalação do app não depende de o servidor estar acessível.
+        }
+      }));
+      await self.skipWaiting();
+    }),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then(async (keys) => {
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      await self.clients.claim();
+    }),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
+
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          void caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        if (request.mode === "navigate") {
+          const fallback = await caches.match(url.pathname === "/display" ? "/display" : "/caixa");
+          if (fallback) return fallback;
+        }
+        return new Response("Você está offline e este conteúdo ainda não foi salvo neste dispositivo.", {
+          status: 503,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }),
+  );
+});

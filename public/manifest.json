@@ -1,0 +1,13 @@
+{
+  "name": "Mercado Alternativo",
+  "short_name": "Mercado Alt.",
+  "description": "Caixa Pix do Mercado Alternativo",
+  "start_url": "/caixa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111714",
+  "theme_color": "#111714",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
