@@ -12,7 +12,8 @@
     "next": "^16.4.6",
     "qrcode": "^1.5.4",
     "react": "^19.2.9",
-    "react-dom": "^19.2.9"
+    "react-dom": "^19.2.9",
+    "sweetalert2": "^11.26.25"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

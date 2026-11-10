@@ -53,8 +53,22 @@ export function buildPixPayload(key: PixKey, amount: number, transactionId = "**
 }
 
 export function parseAmount(input: string): number | null {
-  const normalized = input.trim().replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  const raw = input.trim().replace(/\s/g, "");
+  let normalized: string;
+
+  if (raw.includes(",")) {
+    const parts = raw.split(",");
+    if (parts.length !== 2 || !/^\d{1,2}$/.test(parts[1])) return null;
+    if (!/^\d+$/.test(parts[0]) && !/^\d{1,3}(?:\.\d{3})+$/.test(parts[0])) return null;
+    normalized = `${parts[0].replace(/\./g, "")}.${parts[1]}`;
+  } else if (/^\d{1,3}(?:\.\d{3})+$/.test(raw)) {
+    normalized = raw.replace(/\./g, "");
+  } else if (/^\d+(?:\.\d{1,2})?$/.test(raw)) {
+    normalized = raw;
+  } else {
+    return null;
+  }
+
   const value = Number(normalized);
   return Number.isFinite(value) && value > 0 ? value : null;
 }

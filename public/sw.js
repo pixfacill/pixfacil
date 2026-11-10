@@ -1,5 +1,5 @@
-const CACHE_NAME = "mercado-alternativo-pix-v1";
-const APP_ROUTES = ["/caixa", "/display", "/manifest.json", "/icon.svg"];
+const CACHE_NAME = "mercado-alternativo-pix-v2";
+const APP_ROUTES = ["/adm", "/caixa", "/display", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -44,7 +44,12 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(request);
         if (cached) return cached;
         if (request.mode === "navigate") {
-          const fallback = await caches.match(url.pathname === "/display" ? "/display" : "/caixa");
+          const fallbackRoute = url.pathname === "/display"
+            ? "/display"
+            : url.pathname === "/adm" || url.pathname === "/"
+              ? "/adm"
+              : "/caixa";
+          const fallback = await caches.match(fallbackRoute);
           if (fallback) return fallback;
         }
         return new Response("Você está offline e este conteúdo ainda não foi salvo neste dispositivo.", {

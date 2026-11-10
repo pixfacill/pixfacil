@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import PwaRegister from "./PwaRegister";
 import "./globals.css";
+import "sweetalert2/dist/sweetalert2.min.css";
 
 export const metadata: Metadata = {
   title: "Mercado Alternativo | Pix",
