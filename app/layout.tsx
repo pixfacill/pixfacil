@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: "Gere cobranças Pix e acompanhe os recebimentos do Mercado Alternativo.",
   applicationName: "Mercado Alternativo",
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "PixFácil" },
+  icons: { apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Mercado Alternativo" },
 };
 
 export const viewport: Viewport = {

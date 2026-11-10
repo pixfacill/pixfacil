@@ -2,6 +2,8 @@
 
 PWA em Next.js para gerar cobranças Pix com valor definido nos caixas e acompanhar o histórico. O sistema suporta vários caixas, links separados para o operador e para a tela do cliente, auditoria do proprietário e retenção configurável. O QR Pix pode ser exibido no operador e em uma tela separada; a confirmação do pagamento é manual.
 
+No iPhone, abra o endereço publicado no Safari, toque em **Compartilhar > Adicionar à Tela de Início**. O app usa um ícone Apple Touch de 180 × 180 px e abre em modo de aplicativo.
+
 ## Teste local sem Supabase
 
 No PowerShell, na pasta do projeto:
