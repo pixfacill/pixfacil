@@ -2,10 +2,18 @@
   "name": "pix-facil",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "build:cf": "opennextjs-cloudflare build",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -16,6 +24,7 @@
     "sweetalert2": "^11.26.25"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.16",
     "@types/node": "^22.13.10",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.0",
@@ -23,6 +32,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.23",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "wrangler": "^4.159.0"
   }
 }

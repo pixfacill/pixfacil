@@ -1,0 +1,4 @@
+# Copy this file to .dev.vars for local Wrangler preview only.
+# Do not put secret keys in NEXT_PUBLIC_* variables.
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_PUBLIC_SUPABASE_KEY

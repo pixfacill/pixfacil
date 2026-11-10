@@ -45,18 +45,31 @@ Os links dos operadores ficam guardados em `caixa_links`, e os links da tela do 
 
 **Nunca exponha `SUPABASE_SERVICE_ROLE_KEY` no navegador nem a publique.** Ela e `INITIAL_ADMIN_SETUP_KEY` são variáveis exclusivamente de servidor; somente as variáveis `NEXT_PUBLIC_*` podem ser disponibilizadas no cliente. Não crie policies abertas para `anon`: o SQL configura acesso autenticado e RLS, com isolamento por caixa.
 
-## Deploy na Netlify
+## Deploy no Cloudflare Workers
 
-1. Em **Site configuration > Environment variables**, configure as quatro variáveis acima. Use a URL do projeto, a chave pública `anon`/publishable e os dois segredos de servidor. Não use prefixo `NEXT_PUBLIC_` nas variáveis secretas.
-2. Faça o deploy com a configuração em [`netlify.toml`](./netlify.toml), que executa `npm run build` com o plugin oficial do Next.js.
-3. Abra `/adm` no domínio publicado para concluir a configuração inicial e criar os links dos caixas. Links criados localmente apontam para `localhost`; crie os links no domínio publicado para compartilhá-los com os operadores.
-4. Após mudar variáveis na Netlify, faça um novo deploy.
+O app Next.js usa o adaptador OpenNext para Cloudflare Workers. Em **Workers & Pages > seu Worker > Settings > Build**, configure:
+
+- **Build command:** `npm run build:cf`
+- **Deploy command:** `npx wrangler deploy`
+- **Root directory:** `/` (raiz do repositório); não configure pasta de publicação.
+
+O arquivo [`wrangler.jsonc`](./wrangler.jsonc) aponta para o Worker gerado e serve os assets estáticos. O build executa `next build` e transforma a saída para Workers; o deploy publica o Worker já compilado.
+
+Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` em **Settings > Build > Build variables and secrets** do Worker, pois o Next.js inclui esses valores públicos no bundle do navegador. A chave `anon`/publishable é pública; nunca coloque a `service_role` em `NEXT_PUBLIC_*`. Como o administrador já foi criado, não é necessário configurar `INITIAL_ADMIN_SETUP_KEY` nem `SUPABASE_SERVICE_ROLE_KEY`. Se fizer deploy pela linha de comando ou por CI próprio, autentique o Wrangler com `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` como secrets de build.
+
+Para testar localmente no runtime Worker, mantenha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` no `.env.local` durante o build e, se precisar de valores em runtime, copie `.dev.vars.example` para `.dev.vars`. Execute `npm run preview`. O `.env.local` e `.dev.vars` são locais e não devem ser enviados ao Git. Para deploy local autenticado, use `npm run deploy`.
+
+Depois que o domínio `workers.dev` estiver disponível, adicione o endereço de `/adm` em **Supabase > Authentication > URL Configuration > Redirect URLs** para a recuperação de senha.
+
+## Deploy alternativo na Netlify
+
+O arquivo [`netlify.toml`](./netlify.toml) permanece para deploys na Netlify, usando `npm run build` e o plugin oficial do Next.js. Configure somente as variáveis públicas do Supabase para o funcionamento normal do app.
 
 ## Teste local pelo Cloudflare Tunnel
 
-Para testar pelo túnel, o servidor local também precisa ter `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` no `.env.local`; variáveis configuradas somente na Netlify não chegam ao computador local. Depois de criar ou mudar essas variáveis, gere novamente o build e reinicie o servidor local. A configuração do Next.js permite `*.trycloudflare.com` no servidor de desenvolvimento/HMR. Inicie/reinicie o túnel apontando para `http://localhost:3000` e abra `/adm`. A sessão do Supabase é vinculada à origem do navegador: se o endereço temporário do túnel mudar, entre novamente no endereço novo. Essa permissão é somente para desenvolvimento e não substitui autenticação; o endereço temporário fica acessível publicamente enquanto estiver ativo.
+Para testar pelo túnel, o servidor local também precisa ter `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` no `.env.local`; variáveis configuradas somente em um provedor de deploy não chegam ao computador local. Depois de criar ou mudar essas variáveis, gere novamente o build e reinicie o servidor local. A configuração do Next.js permite `*.trycloudflare.com` no servidor de desenvolvimento/HMR. Inicie/reinicie o túnel apontando para `http://localhost:3000` e abra `/adm`. A sessão do Supabase é vinculada à origem do navegador: se o endereço temporário do túnel mudar, entre novamente no endereço novo. Essa permissão é somente para desenvolvimento e não substitui autenticação; o endereço temporário fica acessível publicamente enquanto estiver ativo.
 
-Se o app não conseguir conectar, a tela agora mostra um erro e oferece **Tentar novamente** (em vez de ficar carregando sem fim). Confira se as quatro variáveis estão configuradas no contexto de deploy correto da Netlify e se o schema/migrations foram executados no mesmo projeto Supabase. A inicialização e o carregamento dos dados têm limite de tempo; se o erro persistir, teste `/caixa` no domínio e confira o log do navegador sem compartilhar chaves ou tokens.
+Se o app não conseguir conectar, a tela mostra um erro e oferece **Tentar novamente** (em vez de ficar carregando sem fim). Confira se as duas variáveis públicas estão configuradas no ambiente de build do provedor e se o schema/migrations foram executados no mesmo projeto Supabase. A inicialização e o carregamento dos dados têm limite de tempo; se o erro persistir, teste `/caixa` no domínio e confira o log do navegador sem compartilhar chaves ou tokens.
 
 ## Histórico e retenção
 
