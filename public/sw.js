@@ -1,5 +1,5 @@
-const CACHE_NAME = "mercado-alternativo-pix-v2";
-const APP_ROUTES = ["/adm", "/caixa", "/display", "/manifest.json", "/icon.svg"];
+const CACHE_NAME = "mercado-alternativo-pix-v3";
+const APP_ROUTES = ["/adm", "/caixa", "/display", "/manifest.json", "/manifest-adm.json", "/manifest-caixa.json", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

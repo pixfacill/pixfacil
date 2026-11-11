@@ -272,7 +272,11 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       if (!isCurrent()) return;
       if (error || !linkedBox) throw new Error(`Não foi possível abrir o caixa: ${error?.message ?? "caixa indisponível"}`);
       localStorage.setItem(ACTIVE_BOX_STORAGE, linkedBox.id);
-      window.history.replaceState({}, "", `${window.location.pathname}?caixa=${encodeURIComponent(linkedBox.id)}`);
+      const installedAppUrl = new URLSearchParams({
+        caixa: linkedBox.id,
+        nome: linkedBox.nome,
+      });
+      window.history.replaceState({}, "", `${window.location.pathname}?${installedAppUrl}`);
       const { data: isAdmin } = await supabase.rpc("is_app_admin");
       if (!isCurrent()) return;
       if (isAdmin) {
@@ -327,6 +331,10 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
 
     const { data: setupAvailable, error } = await supabase.rpc("owner_setup_available");
     if (!isCurrent()) return;
+    if (!adminPanel) {
+      setAccessMode("link_required");
+      return;
+    }
     if (error) throw new Error(`Não foi possível verificar a configuração inicial: ${error.message}`);
     setCanSetupOwner(Boolean(setupAvailable));
     setAccessMode("login");
@@ -1128,6 +1136,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
   const cashboxLink = (box: CashRegister, token: string) => {
     const url = new URL("/caixa", window.location.origin);
     url.searchParams.set("caixa", box.id);
+    url.searchParams.set("nome", box.nome);
     url.searchParams.set("acesso", token);
     return url.toString();
   };

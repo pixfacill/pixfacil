@@ -2,7 +2,7 @@
 
 PWA em Next.js para gerar cobranças Pix com valor definido nos caixas e acompanhar o histórico. O sistema suporta vários caixas, links separados para o operador e para a tela do cliente, auditoria do proprietário e retenção configurável. O QR Pix pode ser exibido no operador e em uma tela separada; a confirmação do pagamento é manual.
 
-No iPhone, abra o endereço publicado no Safari, toque em **Compartilhar > Adicionar à Tela de Início**. O app usa um ícone Apple Touch de 180 × 180 px e abre em modo de aplicativo.
+No iPhone, abra o endereço publicado no Safari, toque em **Compartilhar > Adicionar à Tela de Início**. O painel ADM e cada caixa têm manifestos e identificadores PWA separados, então podem ser instalados como apps diferentes, inclusive mais de um caixa no mesmo aparelho. Para instalar um caixa, primeiro abra o link secreto daquele operador no Safari e conclua o vínculo; depois adicione o caixa à Tela de Início. O app usa um ícone Apple Touch de 180 × 180 px e abre em modo de aplicativo.
 
 ## Teste local sem Supabase
 
