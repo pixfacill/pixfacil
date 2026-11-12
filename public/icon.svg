@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="32" fill="#c5f36b"/>
-  <path d="M27 92V36h14l23 29 23-29h14v56H84V61L64 86 44 61v31z" fill="#111714"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#fff"/>
+  <circle cx="256" cy="256" r="239" fill="none" stroke="#279b78" stroke-width="5"/>
+  <text x="256" y="214" text-anchor="middle" fill="#24735d" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" letter-spacing="5">MERCADO</text>
+  <text x="256" y="292" text-anchor="middle" fill="#188c65" font-family="Arial, Helvetica, sans-serif" font-size="66" font-style="italic" font-weight="700" letter-spacing="-3" textLength="420" lengthAdjust="spacingAndGlyphs">Alternativo</text>
+  <text x="426" y="318" text-anchor="middle" fill="#24735d" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="2">DESDE 1993</text>
 </svg>

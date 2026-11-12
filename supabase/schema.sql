@@ -6,6 +6,10 @@
 create extension if not exists pg_cron;
 create extension if not exists pgcrypto with schema extensions;
 
+drop function if exists public.create_cashbox_install_ticket(uuid, text);
+drop function if exists public.redeem_cashbox_install_ticket(uuid, text);
+drop table if exists public.cashbox_install_tickets;
+
 create table if not exists public.administradores (
   user_id uuid primary key references auth.users(id) on delete cascade,
   created_at timestamptz not null default now()
@@ -520,7 +524,11 @@ grant select on public.caixa_dispositivos to authenticated;
 grant select on public.caixa_chaves to authenticated;
 grant select, insert, update on public.chaves_pix to authenticated;
 grant delete on public.chaves_pix to authenticated;
-grant select, insert, update on public.sessoes_caixa to authenticated;
+revoke all on public.sessoes_caixa from public, anon, authenticated;
+grant select, delete on public.sessoes_caixa to authenticated;
+grant insert (id, chave_id, caixa_id, caixa_nome, valor, payload_pix, status)
+  on public.sessoes_caixa to authenticated;
+grant update (status) on public.sessoes_caixa to authenticated;
 grant select, update on public.configuracoes_sistema to authenticated;
 
 revoke all on public.caixa_links from public, anon, authenticated;
@@ -606,12 +614,21 @@ create policy "Owner and assigned box read sessions" on public.sessoes_caixa
 drop policy if exists "Owner and assigned box create sessions" on public.sessoes_caixa;
 create policy "Owner and assigned box create sessions" on public.sessoes_caixa
   for insert to authenticated
-  with check (public.can_use_cashbox_pix_key(caixa_id, chave_id));
+  with check (
+    status = 'pendente'
+    and public.can_use_cashbox_pix_key(caixa_id, chave_id)
+  );
 drop policy if exists "Owner and assigned box update sessions" on public.sessoes_caixa;
 create policy "Owner and assigned box update sessions" on public.sessoes_caixa
   for update to authenticated
-  using (public.is_app_admin() or public.can_access_cashbox(caixa_id))
-  with check (public.is_app_admin() or public.can_access_cashbox(caixa_id));
+  using (
+    status = 'pendente'
+    and (public.is_app_admin() or public.can_access_cashbox(caixa_id))
+  )
+  with check (
+    status = 'pago'
+    and (public.is_app_admin() or public.can_access_cashbox(caixa_id))
+  );
 drop policy if exists "Owner and assigned box delete pending sessions" on public.sessoes_caixa;
 create policy "Owner and assigned box delete pending sessions" on public.sessoes_caixa
   for delete to authenticated
@@ -619,7 +636,6 @@ create policy "Owner and assigned box delete pending sessions" on public.sessoes
     status = 'pendente'
     and (public.is_app_admin() or public.can_access_cashbox(caixa_id))
   );
-grant delete on public.sessoes_caixa to authenticated;
 
 drop policy if exists "Owner reads settings" on public.configuracoes_sistema;
 create policy "Owner reads settings" on public.configuracoes_sistema

@@ -1,5 +1,16 @@
-const CACHE_NAME = "mercado-alternativo-pix-v3";
-const APP_ROUTES = ["/adm", "/caixa", "/display", "/manifest.json", "/manifest-adm.json", "/manifest-caixa.json", "/icon.svg"];
+const CACHE_NAME = "mercado-alternativo-pix-v6";
+const APP_ROUTES = [
+  "/adm",
+  "/caixa",
+  "/display",
+  "/manifest.json",
+  "/manifest-adm.json",
+  "/manifest-caixa.json",
+  "/icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -36,7 +47,11 @@ self.addEventListener("fetch", (event) => {
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
-          void caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          const containsCredential = url.searchParams.has("acesso") || url.searchParams.has("instalacao");
+          const isDynamicManifest = url.pathname === "/api/pwa/manifest";
+          if (!containsCredential && !isDynamicManifest) {
+            void caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
         }
         return response;
       })

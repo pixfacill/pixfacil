@@ -2,10 +2,13 @@
 
 import QRCode from "qrcode";
 import Swal from "sweetalert2";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildPixPayload, formatCurrency, parseAmount } from "@/lib/pix";
 import { getSupabase } from "@/lib/supabase";
-import { createCashboxToken, redeemCashboxLink } from "@/lib/cashbox-auth";
+import {
+  createCashboxToken,
+  redeemCashboxLink,
+} from "@/lib/cashbox-auth";
 import {
   ACTIVE_BOX_STORAGE,
   ACTIVE_SESSION_STORAGE,
@@ -23,9 +26,27 @@ import {
 type MenuTab = "menu" | "history" | "keys" | "boxes" | "box_detail" | "profile";
 type AccessMode = "checking" | "setup" | "login" | "owner" | "cashier" | "local" | "link_required" | "error";
 type OwnerAuthView = "sign_in" | "forgot_password" | "reset_password";
+type AppNavigationState = {
+  menuOpen: boolean;
+  menuTab: MenuTab;
+  qrOpen: boolean;
+};
 
 const BOX_KEY_ASSIGNMENTS_STORAGE = "pixfacil.cashbox-key-assignments.v1";
 const BOX_LINKS_STORAGE = "pixfacil.cashbox-links.v1";
+const PENDING_CASHBOX_LINK_STORAGE = "pixfacil.pending-cashbox-link.v1";
+const APP_NAVIGATION_HISTORY_KEY = "__pixfacilNavigation";
+const APP_NAVIGATION_HISTORY_ENTRY_KEY = "__pixfacilNavigationEntry";
+const MENU_TABS: MenuTab[] = ["menu", "history", "keys", "boxes", "box_detail", "profile"];
+
+function isAppNavigationState(value: unknown): value is AppNavigationState {
+  if (!value || typeof value !== "object") return false;
+  const state = value as Record<string, unknown>;
+  return typeof state.menuOpen === "boolean"
+    && typeof state.qrOpen === "boolean"
+    && typeof state.menuTab === "string"
+    && MENU_TABS.includes(state.menuTab as MenuTab);
+}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -85,6 +106,7 @@ function localDateKey(value: string): string {
 }
 
 export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean }) {
+  const appMinHeightClass = "flex-1";
   const [accessMode, setAccessMode] = useState<AccessMode>("checking");
   const [boxes, setBoxes] = useState<CashRegister[]>([]);
   const [cashboxKeyAssignments, setCashboxKeyAssignments] = useState<Record<string, string[]>>({});
@@ -116,6 +138,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
   const [history, setHistory] = useState<PixSession[]>([]);
   const [activeSession, setActiveSession] = useState<PixSession | null>(null);
   const [qrImage, setQrImage] = useState("");
+  const qrImagePayload = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -133,6 +156,84 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
   const [historyRetention, setHistoryRetention] = useState(60);
   const [backendOnline, setBackendOnline] = useState(false);
   const [accessError, setAccessError] = useState("");
+  const lastNavigationState = useRef<string | null>(null);
+
+  const navigationState: AppNavigationState = { menuOpen, menuTab, qrOpen };
+  const navigationStateKey = JSON.stringify(navigationState);
+  const activeQrPayload = activeSession?.status === "pendente" ? activeSession.payload_pix : null;
+
+  const setGeneratedQrImage = useCallback((payload: string, image: string) => {
+    qrImagePayload.current = payload;
+    setQrImage(image);
+  }, []);
+
+  const returnToPreviousAppView = () => {
+    const currentHistoryState = window.history.state;
+    const historyState = currentHistoryState && typeof currentHistoryState === "object"
+      ? currentHistoryState as Record<string, unknown>
+      : {};
+
+    if (historyState[APP_NAVIGATION_HISTORY_ENTRY_KEY] === true) {
+      window.history.back();
+      return;
+    }
+
+    if (qrOpen) setQrOpen(false);
+    else if (!adminPanel) setMenuOpen(false);
+    else if (menuTab !== "menu") setMenuTab("menu");
+  };
+
+  useEffect(() => {
+    const currentHistoryState = window.history.state;
+    const historyState = currentHistoryState && typeof currentHistoryState === "object"
+      ? currentHistoryState as Record<string, unknown>
+      : {};
+
+    if (lastNavigationState.current === null) {
+      window.history.replaceState(
+        {
+          ...historyState,
+          [APP_NAVIGATION_HISTORY_KEY]: navigationState,
+          [APP_NAVIGATION_HISTORY_ENTRY_KEY]: false,
+        },
+        "",
+        window.location.href,
+      );
+      lastNavigationState.current = navigationStateKey;
+      return;
+    }
+
+    if (lastNavigationState.current !== navigationStateKey) {
+      window.history.pushState(
+        {
+          ...historyState,
+          [APP_NAVIGATION_HISTORY_KEY]: navigationState,
+          [APP_NAVIGATION_HISTORY_ENTRY_KEY]: true,
+        },
+        "",
+        window.location.href,
+      );
+      lastNavigationState.current = navigationStateKey;
+    }
+  }, [navigationStateKey]);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const historyState = event.state && typeof event.state === "object"
+        ? event.state as Record<string, unknown>
+        : {};
+      const previousView = historyState[APP_NAVIGATION_HISTORY_KEY];
+      if (!isAppNavigationState(previousView)) return;
+
+      lastNavigationState.current = JSON.stringify(previousView);
+      setMenuOpen(previousView.menuOpen);
+      setMenuTab(previousView.menuTab);
+      setQrOpen(previousView.qrOpen);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     const today = localDateKey(new Date().toISOString());
@@ -253,15 +354,36 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const linkBoxId = params.get("caixa");
-    const accessToken = params.get("acesso");
+    const currentUrl = new URL(window.location.href);
+    const fragmentParams = new URLSearchParams(currentUrl.hash.slice(1));
+    const linkBoxId = currentUrl.searchParams.get("caixa")?.trim() || fragmentParams.get("caixa");
+    const urlAccessToken = currentUrl.searchParams.get("acesso")?.trim() || fragmentParams.get("acesso");
+    const pendingAccessTokenKey = linkBoxId
+      ? `${PENDING_CASHBOX_LINK_STORAGE}:${linkBoxId}`
+      : null;
+    if (urlAccessToken && pendingAccessTokenKey) {
+      sessionStorage.setItem(pendingAccessTokenKey, urlAccessToken);
+    }
+    const accessToken = urlAccessToken
+      || (pendingAccessTokenKey ? sessionStorage.getItem(pendingAccessTokenKey) : null);
+    if (accessToken || currentUrl.searchParams.has("instalacao") || fragmentParams.has("instalacao")) {
+      currentUrl.searchParams.delete("acesso");
+      currentUrl.searchParams.delete("instalacao");
+      if (fragmentParams.has("acesso") || fragmentParams.has("instalacao")) currentUrl.hash = "";
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+      );
+    }
+    const params = new URLSearchParams(currentUrl.search);
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (!isCurrent()) return;
     if (sessionError) throw new Error(`Não foi possível verificar a sessão: ${sessionError.message}`);
 
     if (linkBoxId && accessToken) {
       await redeemCashboxLink(supabase, linkBoxId, accessToken);
+      if (pendingAccessTokenKey) sessionStorage.removeItem(pendingAccessTokenKey);
       if (!isCurrent()) return;
       const { data: linkedBox, error } = await supabase
         .from("caixas")
@@ -272,11 +394,6 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       if (!isCurrent()) return;
       if (error || !linkedBox) throw new Error(`Não foi possível abrir o caixa: ${error?.message ?? "caixa indisponível"}`);
       localStorage.setItem(ACTIVE_BOX_STORAGE, linkedBox.id);
-      const installedAppUrl = new URLSearchParams({
-        caixa: linkedBox.id,
-        nome: linkedBox.nome,
-      });
-      window.history.replaceState({}, "", `${window.location.pathname}?${installedAppUrl}`);
       const { data: isAdmin } = await supabase.rpc("is_app_admin");
       if (!isCurrent()) return;
       if (isAdmin) {
@@ -493,18 +610,22 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
   }, [activeBox]);
 
   useEffect(() => {
-    if (!activeSession || activeSession.status !== "pendente") {
+    if (!activeQrPayload) {
       setQrImage("");
+      qrImagePayload.current = null;
       return;
     }
+    if (qrImagePayload.current === activeQrPayload) return;
+
     let cancelled = false;
-    void QRCode.toDataURL(activeSession.payload_pix, {
+    const payload = activeQrPayload;
+    void QRCode.toDataURL(payload, {
       width: 520,
       margin: 2,
       errorCorrectionLevel: "M",
     })
       .then((image) => {
-        if (!cancelled) setQrImage(image);
+        if (!cancelled) setGeneratedQrImage(payload, image);
       })
       .catch((error: unknown) => {
         console.error("Não foi possível gerar o QR Code.", error);
@@ -513,7 +634,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
     return () => {
       cancelled = true;
     };
-  }, [activeSession]);
+  }, [activeQrPayload]);
 
   useEffect(() => {
     if (!supabase || (accessMode !== "owner" && accessMode !== "cashier") || (!activeBox && accessMode !== "owner")) {
@@ -798,7 +919,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
               .eq("status", "pendente");
             if (rollbackError) {
               saveActiveSession(session);
-              setQrImage(qr);
+              setGeneratedQrImage(session.payload_pix, qr);
               setQrOpen(true);
               persistHistory(withHistoryItem(nextHistory, session));
               throw new Error(`A cobrança nova foi criada, mas a anterior não pôde ser removida (${deletePreviousError.message}); a limpeza da nova também falhou (${rollbackError.message}). A nova cobrança permanece aberta.`);
@@ -822,7 +943,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
                 .eq("status", "pendente");
               if (rollbackError) {
                 saveActiveSession(session);
-                setQrImage(qr);
+                setGeneratedQrImage(session.payload_pix, qr);
                 setQrOpen(true);
                 persistHistory(withHistoryItem(nextHistory, session));
                 throw new Error(`A cobrança anterior continua ativa e a nova não pôde ser removida (${rollbackError.message}). A nova cobrança permanece aberta.`);
@@ -846,7 +967,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
         nextHistory = nextHistory.filter((item) => item.id !== previousSession.id);
       }
       saveActiveSession(session);
-      setQrImage(qr);
+      setGeneratedQrImage(session.payload_pix, qr);
       setQrOpen(true);
       persistHistory(withHistoryItem(nextHistory, session));
       setMessage("");
@@ -886,7 +1007,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       saveActiveSession(paid);
       persistHistory(withHistoryItem(history, paid));
       setAmountText("");
-      setQrOpen(false);
+      returnToPreviousAppView();
       setNotice(supabase
         ? `Recebimento de ${formatCurrency(paid.valor)} confirmado e salvo no Supabase.`
         : `Recebimento de ${formatCurrency(paid.valor)} confirmado neste dispositivo.`);
@@ -952,7 +1073,8 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       saveActiveSession(null);
       persistHistory(history.filter((item) => item.id !== pending.id && item.status !== "cancelado"));
       setQrImage("");
-      setQrOpen(false);
+      qrImagePayload.current = null;
+      returnToPreviousAppView();
       setAmountText("");
       setNotice("Cobrança cancelada e removida do histórico.");
     } catch (error) {
@@ -1144,7 +1266,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
   const customerLink = (box: CashRegister, token: string) => {
     const url = new URL("/display", window.location.origin);
     url.searchParams.set("caixa", box.id);
-    url.searchParams.set("acesso", token);
+    url.hash = new URLSearchParams({ acesso: token }).toString();
     return url.toString();
   };
 
@@ -1628,11 +1750,11 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
 
   if (ownerAuthView === "reset_password") {
     return (
-      <main className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-8">
+      <main className={`relative grid ${appMinHeightClass} place-items-center overflow-hidden px-4 py-8`}>
         <div className="grid-bg pointer-events-none absolute inset-x-0 top-0 h-[470px]" />
         <section className="relative w-full max-w-md rounded-3xl border border-white/[.08] bg-panel/90 p-6 shadow-2xl sm:p-8">
           <div className="mb-7 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-lime text-xl font-black text-ink shadow-glow">M</div>
+            <img src="/icon.svg" alt="" className="h-11 w-11 rounded-full bg-white p-0.5 shadow-glow" />
             <div><p className="text-sm font-bold">Mercado Alternativo</p><p className="text-xs text-white/40">REDEFINIÇÃO DE SENHA</p></div>
           </div>
           <h1 className="text-2xl font-semibold">Criar nova senha</h1>
@@ -1656,7 +1778,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
     ((accessMode === "owner" || accessMode === "cashier" || accessMode === "local") && !dataLoaded)
   ) {
     return (
-      <main className="grid min-h-screen place-items-center px-5">
+      <main className={`grid ${appMinHeightClass} place-items-center px-5`}>
         <p className="text-sm text-white/55">Abrindo Mercado Alternativo...</p>
       </main>
     );
@@ -1664,11 +1786,11 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
 
   if (accessMode === "error") {
     return (
-      <main className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-8">
+      <main className={`relative grid ${appMinHeightClass} place-items-center overflow-hidden px-4 py-8`}>
         <div className="grid-bg pointer-events-none absolute inset-x-0 top-0 h-[470px]" />
         <section className="relative w-full max-w-md rounded-3xl border border-white/[.08] bg-panel/90 p-6 shadow-2xl sm:p-8">
           <div className="mb-6 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-lime text-xl font-black text-ink shadow-glow">M</div>
+            <img src="/icon.svg" alt="" className="h-11 w-11 rounded-full bg-white p-0.5 shadow-glow" />
             <div><p className="text-sm font-bold">Mercado Alternativo</p><p className="text-xs text-white/40">CONEXÃO INDISPONÍVEL</p></div>
           </div>
           <h1 className="text-xl font-semibold">Não foi possível abrir o sistema</h1>
@@ -1688,11 +1810,11 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
     const ownerForm = accessMode === "setup" || accessMode === "login";
     const forgotPassword = accessMode === "login" && ownerAuthView === "forgot_password";
     return (
-      <main className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-8">
+      <main className={`relative grid ${appMinHeightClass} place-items-center overflow-hidden px-4 py-8`}>
         <div className="grid-bg pointer-events-none absolute inset-x-0 top-0 h-[470px]" />
         <section className="relative w-full max-w-md rounded-3xl border border-white/[.08] bg-panel/90 p-6 shadow-2xl sm:p-8">
           <div className="mb-7 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-lime text-xl font-black text-ink shadow-glow">M</div>
+            <img src="/icon.svg" alt="" className="h-11 w-11 rounded-full bg-white p-0.5 shadow-glow" />
             <div><p className="text-sm font-bold">Mercado Alternativo</p><p className="text-xs text-white/40">ACESSO DO PROPRIETÁRIO</p></div>
           </div>
           {ownerForm ? (
@@ -1769,12 +1891,12 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-5 sm:px-8 sm:py-8">
+    <main className={`relative ${appMinHeightClass} overflow-hidden px-4 py-5 sm:px-8 sm:py-8`}>
       <div className="grid-bg pointer-events-none absolute inset-x-0 top-0 h-[470px]" />
       <div className={adminPanel ? "hidden" : "relative mx-auto max-w-xl"}>
         <header className="mb-6 flex items-center justify-between">
           <a href="/caixa" className="flex items-center gap-3" aria-label="Mercado Alternativo, caixa">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-lime text-xl font-black text-ink shadow-glow">M</div>
+            <img src="/icon.svg" alt="" className="h-11 w-11 rounded-full bg-white p-0.5 shadow-glow" />
             <div>
               <p className="text-sm font-bold tracking-wide">Mercado Alternativo</p>
               <p className="text-xs text-white/40">CAIXA PIX</p>
@@ -1842,7 +1964,16 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
 
         </section>
 
-        <footer className="py-6 text-center text-xs text-white/25">Mercado Alternativo</footer>
+        {!qrOpen && activeSession?.status === "pendente" && (
+          <button
+            type="button"
+            onClick={() => setQrOpen(true)}
+            className="mt-4 w-full rounded-xl border border-lime/20 bg-lime/[.05] px-4 py-3 text-sm font-medium text-lime"
+          >
+            Reabrir cobrança pendente · {formatCurrency(activeSession.valor)}
+          </button>
+        )}
+
       </div>
 
       {!adminPanel && qrOpen && activeSession?.status === "pendente" && (
@@ -1855,12 +1986,11 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
             ×
           </button>
           <div className="mb-3 mt-2 flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-lime text-lg font-black text-ink">M</div>
+            <img src="/icon.svg" alt="" className="h-9 w-9 rounded-full bg-white p-0.5" />
             <p className="text-sm font-bold">Mercado Alternativo</p>
           </div>
           <p className="text-xs font-semibold tracking-[.18em] text-lime">AGUARDANDO PAGAMENTO</p>
           <p className="mt-1 text-3xl font-bold">{formatCurrency(activeSession.valor)}</p>
-          <p className="mt-1 text-xs text-white/40">{activeSession.apelido}</p>
           <div className="my-4 grid w-full flex-1 place-items-center">
             <div className="w-full max-w-[min(76vw,52vh,440px)] rounded-2xl bg-white p-2 shadow-glow">
               {qrImage
@@ -1880,21 +2010,21 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       {menuOpen && (
         <div
           className={adminPanel
-            ? "fixed inset-0 z-40 bg-ink"
+            ? "relative z-40 bg-ink"
             : "fixed inset-0 z-40 flex justify-end bg-black/70 backdrop-blur-sm"}
           onMouseDown={(event) => {
-            if (!adminPanel && event.target === event.currentTarget) setMenuOpen(false);
+            if (!adminPanel && event.target === event.currentTarget) returnToPreviousAppView();
           }}
         >
           <aside className={adminPanel
-            ? "mx-auto h-full w-full max-w-5xl overflow-y-auto bg-ink px-4 py-6 sm:px-8"
+            ? "mx-auto w-full max-w-5xl bg-ink px-4 py-6 sm:px-8"
             : "h-full w-full max-w-lg overflow-y-auto border-l border-white/10 bg-[#171e1a] p-5 sm:p-8"}>
             {adminPanel && (
               <section className="relative mb-8 overflow-hidden rounded-[2rem] border border-lime/20 bg-[radial-gradient(ellipse_at_top_right,rgba(197,243,107,.18),transparent_55%),linear-gradient(135deg,#1b2820,#111714)] p-6 shadow-[0_24px_70px_rgba(0,0,0,.28)] sm:p-9">
                 <div className="pointer-events-none absolute -right-10 -top-20 h-64 w-64 rounded-full border border-lime/10" />
                 <div className="pointer-events-none absolute -right-2 -top-12 h-48 w-48 rounded-full border border-lime/10" />
                 <div className="relative flex items-center gap-4 sm:gap-5">
-                  <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[1.4rem] border border-lime/30 bg-lime text-3xl font-black text-ink shadow-[0_0_45px_rgba(197,243,107,.22)] sm:h-20 sm:w-20 sm:text-4xl">M</div>
+                  <img src="/icon.svg" alt="" className="h-16 w-16 shrink-0 rounded-full bg-white p-1 shadow-[0_0_45px_rgba(197,243,107,.22)] sm:h-20 sm:w-20" />
                   <div>
                     <p className="text-[10px] font-bold tracking-[.28em] text-lime/75 sm:text-xs">PAINEL DO PROPRIETÁRIO</p>
                     <h1 className="mt-1 text-3xl font-black tracking-tight text-white sm:text-5xl">Mercado <span className="text-lime">Alternativo</span></h1>
@@ -1918,7 +2048,9 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
                 </h2>
               </div>
               <button
-                onClick={() => adminPanel ? window.location.assign("/adm") : setMenuOpen(false)}
+                onClick={() => adminPanel
+                  ? menuTab === "menu" ? window.location.assign("/adm") : returnToPreviousAppView()
+                  : returnToPreviousAppView()}
                 aria-label={adminPanel ? "Ir ao início do painel ADM" : "Fechar menu"}
                 className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-white/65"
               >
@@ -1928,7 +2060,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
 
             {menuTab === "menu" ? (
               <nav className="space-y-3">
-                {!adminPanel && <button onClick={() => setMenuOpen(false)} className="w-full rounded-xl border border-white/[.08] bg-white/[.03] px-4 py-4 text-left text-sm font-medium hover:border-lime/30">Continuar no caixa <span className="float-right text-white/35">›</span></button>}
+                {!adminPanel && <button onClick={returnToPreviousAppView} className="w-full rounded-xl border border-white/[.08] bg-white/[.03] px-4 py-4 text-left text-sm font-medium hover:border-lime/30">Continuar no caixa <span className="float-right text-white/35">›</span></button>}
                 {(adminPanel || accessMode === "local") && <button onClick={() => setMenuTab("history")} className={`w-full rounded-2xl border px-5 py-4 text-left transition ${adminPanel ? "border-white/10 bg-white/[.035] hover:border-lime/35 hover:bg-lime/[.045]" : "border-white/[.08] bg-white/[.03] hover:border-lime/30"}`}>
                   <span className="flex items-center justify-between gap-4">
                     <span>
@@ -1977,7 +2109,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
             ) : (
               <button
                 onClick={() => {
-                  setMenuTab(menuTab === "box_detail" ? "boxes" : "menu");
+                  returnToPreviousAppView();
                   setGeneratedLinks(null);
                   setMessage("");
                 }}

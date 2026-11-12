@@ -16,13 +16,24 @@ html {
 }
 
 body {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   background:
     radial-gradient(ellipse at 12% 0%, rgba(108, 143, 69, 0.13), transparent 34rem),
     #111714;
   color: #f3f5ef;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+body > main {
+  flex: 1 0 auto;
+}
+
+body > footer {
+  flex: 0 0 auto;
 }
 
 button,
