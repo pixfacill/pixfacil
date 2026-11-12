@@ -24,7 +24,7 @@ import {
 } from "@/lib/types";
 
 type MenuTab = "menu" | "history" | "keys" | "boxes" | "box_detail" | "profile";
-type AccessMode = "checking" | "setup" | "login" | "owner" | "cashier" | "local" | "link_required" | "error";
+type AccessMode = "checking" | "setup" | "login" | "owner" | "cashier" | "local" | "link_required" | "terms_required" | "error";
 type OwnerAuthView = "sign_in" | "forgot_password" | "reset_password";
 type AppNavigationState = {
   menuOpen: boolean;
@@ -35,6 +35,7 @@ type AppNavigationState = {
 const BOX_KEY_ASSIGNMENTS_STORAGE = "pixfacil.cashbox-key-assignments.v1";
 const BOX_LINKS_STORAGE = "pixfacil.cashbox-links.v1";
 const PENDING_CASHBOX_LINK_STORAGE = "pixfacil.pending-cashbox-link.v1";
+const REVEZAPIX_TERMS_VERSION = "2026-11-11-v1";
 const APP_NAVIGATION_HISTORY_KEY = "__pixfacilNavigation";
 const APP_NAVIGATION_HISTORY_ENTRY_KEY = "__pixfacilNavigationEntry";
 const MENU_TABS: MenuTab[] = ["menu", "history", "keys", "boxes", "box_detail", "profile"];
@@ -131,6 +132,7 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
   const [authFeedback, setAuthFeedback] = useState("");
   const [authFeedbackIsError, setAuthFeedbackIsError] = useState(false);
   const [canSetupOwner, setCanSetupOwner] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [setupKey, setSetupKey] = useState("");
   const [keys, setKeys] = useState<PixKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState("");
@@ -397,6 +399,17 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       const { data: isAdmin } = await supabase.rpc("is_app_admin");
       if (!isCurrent()) return;
       if (isAdmin) {
+        const { data: acceptance, error: acceptanceError } = await supabase
+          .from("licenca_aceites")
+          .select("terms_version")
+          .eq("terms_version", REVEZAPIX_TERMS_VERSION)
+          .maybeSingle();
+        if (!isCurrent()) return;
+        if (acceptanceError) throw new Error(`Não foi possível verificar o aceite dos termos: ${acceptanceError.message}`);
+        if (!acceptance) {
+          setAccessMode("terms_required");
+          return;
+        }
         const { data: allBoxes, error: boxesError } = await supabase.from("caixas").select("*").order("created_at");
         if (!isCurrent()) return;
         if (boxesError) throw new Error(`Não foi possível carregar os caixas: ${boxesError.message}`);
@@ -416,6 +429,17 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
       if (!isCurrent()) return;
       if (adminError) throw new Error(`Não foi possível verificar o acesso: ${adminError.message}`);
       if (isAdmin) {
+        const { data: acceptance, error: acceptanceError } = await supabase
+          .from("licenca_aceites")
+          .select("terms_version")
+          .eq("terms_version", REVEZAPIX_TERMS_VERSION)
+          .maybeSingle();
+        if (!isCurrent()) return;
+        if (acceptanceError) throw new Error(`Não foi possível verificar o aceite dos termos: ${acceptanceError.message}`);
+        if (!acceptance) {
+          setAccessMode("terms_required");
+          return;
+        }
         const { data: allBoxes, error } = await supabase.from("caixas").select("*").order("created_at");
         if (!isCurrent()) return;
         if (error) throw new Error(`Não foi possível carregar os caixas: ${error.message}`);
@@ -1660,6 +1684,23 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
     }
   };
 
+  const acceptRevezaPixTerms = async () => {
+    if (!supabase || busy || !termsAccepted) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const { error } = await supabase.rpc("accept_software_terms", {
+        p_terms_version: REVEZAPIX_TERMS_VERSION,
+      });
+      if (error) throw new Error(`Não foi possível registrar o aceite: ${error.message}`);
+      window.location.reload();
+    } catch (error) {
+      console.error("Falha ao registrar o aceite dos termos do RevezaPix.", error);
+      setMessage(error instanceof Error ? error.message : "Não foi possível registrar o aceite.");
+      setBusy(false);
+    }
+  };
+
   const requestPasswordReset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || busy) return;
@@ -1801,6 +1842,54 @@ export default function CaixaApp({ adminPanel = false }: { adminPanel?: boolean 
           <button onClick={() => window.location.reload()} className="mt-6 w-full rounded-xl bg-lime px-4 py-3.5 font-bold text-ink">
             Tentar novamente
           </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (accessMode === "terms_required") {
+    return (
+      <main className={`relative grid ${appMinHeightClass} place-items-center overflow-hidden px-4 py-8`}>
+        <div className="grid-bg pointer-events-none absolute inset-x-0 top-0 h-[470px]" />
+        <section className="relative w-full max-w-xl rounded-3xl border border-white/[.08] bg-panel/90 p-6 shadow-2xl sm:p-8">
+          <div className="mb-7 flex items-center gap-3">
+            <img src="/icon.svg" alt="" className="h-11 w-11 rounded-full bg-white p-0.5 shadow-glow" />
+            <div><p className="text-sm font-bold">RevezaPix</p><p className="text-xs text-white/40">ACEITE DO LICENCIAMENTO</p></div>
+          </div>
+          <h1 className="text-2xl font-semibold">Leia e aceite os termos</h1>
+          <p className="mt-2 text-sm leading-6 text-white/55">
+            Para acessar o painel administrativo, o responsável pela licença precisa revisar e aceitar os termos de uso
+            do RevezaPix.
+          </p>
+          <a
+            href="/termos"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-5 inline-flex rounded-xl border border-lime/20 bg-lime/[.05] px-4 py-3 text-sm font-semibold text-lime hover:bg-lime/10"
+          >
+            Ler termos de uso e licenciamento
+          </a>
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-white/[.08] bg-black/10 p-4 text-sm leading-6 text-white/75">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(event) => setTermsAccepted(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-lime"
+            />
+            <span>Li e concordo com os Termos de Uso e Licenciamento do RevezaPix.</span>
+          </label>
+          {message && <p role="alert" className="mt-4 rounded-xl border border-red-300/15 bg-red-300/[.04] p-3 text-sm text-red-100/85">{message}</p>}
+          <button
+            type="button"
+            disabled={!termsAccepted || busy}
+            onClick={() => void acceptRevezaPixTerms()}
+            className="mt-5 w-full rounded-xl bg-lime px-4 py-3.5 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "Registrando aceite..." : "Aceitar e continuar"}
+          </button>
+          <p className="mt-3 text-xs leading-5 text-white/40">
+            Registraremos a conta autenticada, a versão dos termos e a data e hora do aceite. Não armazenamos seu endereço IP para este registro.
+          </p>
         </section>
       </main>
     );

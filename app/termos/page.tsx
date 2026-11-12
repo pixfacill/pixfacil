@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 const sectionClass = "space-y-2";
 const headingClass = "text-base font-semibold text-white";
 const paragraphClass = "text-sm leading-6 text-white/65";
+const termsVersion = "2026-11-11-v1";
 
 export default function TermsPage() {
   return (
@@ -80,8 +81,11 @@ export default function TermsPage() {
             O responsável pode cadastrar até <strong className="text-white/85">10 chaves Pix</strong> e configurar quais
             delas ficam disponíveis em cada caixa. O número de caixas/terminais incluídos depende do limite registrado na
             contratação e da configuração implantada; não se presume quantidade ilimitada. Cada caixa possui seu próprio
-            link de acesso, que o responsável pode compartilhar com o operador designado e revogar ou renovar quando
-            necessário. O acesso do operador fica restrito ao caixa autorizado.
+            link de acesso, que funciona como credencial: qualquer pessoa que o possua poderá tentar acessar o caixa
+            correspondente, sujeito à validação do sistema. O LICENCIADO deve compartilhar o link apenas com operadores
+            autorizados e solicitar sua renovação imediatamente em caso de desligamento, perda ou suspeita de divulgação.
+            A renovação invalida o link anterior. Um mesmo dispositivo pode operar mais de um caixa quando cada acesso
+            estiver configurado e autorizado.
           </p>
 
           <h3 className="pt-2 text-sm font-semibold text-white/85">Emissão da cobrança</h3>
@@ -138,10 +142,18 @@ export default function TermsPage() {
             A licença não pode ser transferida para outro estabelecimento ou titular sem autorização escrita do LICENCIANTE.
           </p>
           <p className={paragraphClass}>
-            “Vitalícia” refere-se ao prazo da licença de uso e não significa hospedagem em nuvem, disponibilidade permanente
-            de serviços de terceiros, suporte gratuito, atualizações ilimitadas ou desenvolvimento contínuo. A licença pode
-            ser suspensa ou encerrada em caso de inadimplemento da contratação ou uso ilícito, observados a notificação,
-            eventual prazo para correção e os direitos previstos na legislação aplicável.
+            “Vitalícia” refere-se ao prazo do direito de uso da versão licenciada, não a uma garantia de funcionamento
+            perpétuo de hospedagem, domínio, banco de dados, internet, lojas de aplicativos ou outros serviços de terceiros.
+            Salvo se a proposta assinada disser expressamente o contrário, cabe ao LICENCIADO contratar, pagar e manter a
+            infraestrutura necessária à sua operação, incluindo hospedagem/servidor, banco de dados, domínio e serviços de
+            terceiros, bem como observar seus limites, políticas e condições comerciais. A licença, por si só, não inclui
+            esses custos recorrentes, suporte ilimitado nem desenvolvimento contínuo.
+          </p>
+          <p className={paragraphClass}>
+            Se a infraestrutura necessária for descontinuada, ficar indisponível ou deixar de ser compatível, as partes
+            poderão acordar a migração ou substituição mediante orçamento. A suspensão ou encerramento da licença por
+            inadimplemento ou uso ilícito observará comunicação, oportunidade razoável de regularização quando cabível e
+            os direitos que a legislação aplicável não permita afastar.
           </p>
         </section>
 
@@ -153,22 +165,29 @@ export default function TermsPage() {
             orçamento separado. O LICENCIANTE não é obrigado a fornecer novas funcionalidades ou adaptações sem contratação.
           </p>
           <p className={paragraphClass}>
-            O LICENCIADO deve manter dispositivos, navegador, conexão, credenciais e serviços de terceiros em condições
-            adequadas. Deve proteger os links secretos e senhas, limitar o acesso aos operadores autorizados e avisar o
-            LICENCIANTE quando suspeitar de acesso indevido.
+            O LICENCIADO deve manter dispositivos e navegadores compatíveis, conexão, credenciais e serviços de terceiros
+            em condições adequadas; manter cópias dos dados e registros de que necessite; e restringir o acesso aos
+            operadores autorizados. O funcionamento instalável como PWA depende de navegador e dispositivo compatíveis.
+            O LICENCIADO deve avisar o LICENCIANTE quando suspeitar de acesso indevido.
           </p>
         </section>
 
         <section className={sectionClass}>
-          <h2 className={headingClass}>6. Suporte técnico por hora</h2>
+          <h2 className={headingClass}>6. Suporte técnico, manutenção e atualizações</h2>
           <p className={paragraphClass}>
-            O suporte e a manutenção não estão incluídos como serviço mensal na licença. Podem ser solicitados pelo canal
-            informado pelo LICENCIANTE e serão cobrados por hora, conforme valor, forma de contagem, escopo e eventual
-            deslocamento previamente informados em orçamento. Nenhum serviço pago será iniciado sem aprovação do LICENCIADO.
+            Estão incluídos <strong className="text-white/85">30 (trinta) dias corridos de suporte técnico remoto</strong>,
+            contados da conclusão da instalação/configuração inicial descrita na contratação. Esse período cobre orientação
+            para configuração inicial e análise/correção de falhas reproduzíveis no funcionamento das funções contratadas.
+            Não inclui novos recursos, personalizações, treinamento recorrente, suporte a equipamentos ou serviços de
+            terceiros, nem custos de hospedagem, banco de dados ou infraestrutura do LICENCIADO.
           </p>
           <p className={paragraphClass}>
-            A licença vitalícia não cria obrigação de atendimento gratuito. Correções, atualizações ou obrigações decorrentes
-            de garantias legais aplicáveis não são afastadas por esta cláusula.
+            Após o período inicial, suporte, treinamento, reconfiguração, consultoria e manutenção solicitados serão
+            cobrados à parte, por hora técnica ou conforme orçamento previamente aprovado, com indicação de escopo, valor,
+            forma de contagem e eventual deslocamento. Nenhum serviço adicional pago será iniciado sem aprovação do
+            LICENCIADO. Correções críticas de segurança ou estabilidade atribuíveis ao RevezaPix serão disponibilizadas
+            sem custo de licença; a implantação poderá depender de acesso à infraestrutura mantida pelo LICENCIADO.
+            Novos módulos e funcionalidades poderão ser oferecidos separadamente, sem afastar garantias e direitos legais.
           </p>
         </section>
 
@@ -191,34 +210,65 @@ export default function TermsPage() {
           <h2 className={headingClass}>8. Dados e privacidade</h2>
           <p className={paragraphClass}>
             O LICENCIADO é responsável pela legalidade, exatidão e atualização dos dados que inserir, inclusive chaves Pix,
-            nomes de operadores e registros comerciais, e por definir quem pode acessá-los. Quando houver armazenamento ou
-            sincronização em serviços de terceiros, seu funcionamento, disponibilidade e termos próprios também se aplicam.
+            identificação dos responsáveis/operadores e registros comerciais, por definir quem pode acessá-los e por
+            manter cópias dos dados que precisar preservar. Quando houver armazenamento ou sincronização em serviços de
+            terceiros, seu funcionamento, disponibilidade, políticas e termos próprios também se aplicam.
           </p>
           <p className={paragraphClass}>
-            O LICENCIANTE poderá acessar dados estritamente necessários para instalar, prestar suporte ou diagnosticar falhas,
-            mediante autorização do LICENCIADO quando aplicável. As partes devem tratar dados pessoais conforme a legislação
-            de proteção de dados, adotar medidas de segurança razoáveis e comunicar incidentes relevantes. Não envie senhas,
-            códigos de acesso ou dados bancários completos pelo WhatsApp.
+            O LICENCIANTE acessará dados somente na medida necessária à instalação, ao suporte ou ao diagnóstico, com
+            autorização do LICENCIADO quando aplicável e observando a legislação de proteção de dados. Cada parte deverá
+            adotar medidas de segurança razoáveis para os dados sob seu controle e comunicar incidentes relevantes conforme
+            suas obrigações legais. O registro eletrônico do aceite destes termos guarda a conta autenticada, a versão do
+            documento e a data/hora; não guarda o endereço IP para essa finalidade. Não envie senhas, links secretos,
+            códigos de acesso ou dados bancários completos por canais de suporte.
           </p>
         </section>
 
         <section className={sectionClass}>
-          <h2 className={headingClass}>9. Limites e responsabilidades</h2>
+          <h2 className={headingClass}>9. Obrigações fiscais, licitude e uso permitido</h2>
           <p className={paragraphClass}>
-            O LICENCIADO deve manter os registros que precisar, conferir os pagamentos na instituição financeira e manter
-            cópias de segurança quando disponíveis. O LICENCIANTE não responde por falhas de internet, indisponibilidade de
-            bancos, Supabase, hospedagem ou outros terceiros, uso incorreto, credenciais compartilhadas, dados inseridos
-            incorretamente ou decisões tomadas sem conferência do crédito, sem prejuízo das responsabilidades que a lei não
-            permita excluir ou limitar.
+            O LICENCIADO declara ser titular das chaves Pix cadastradas ou possuir autorização válida para utilizá-las.
+            Compete ao LICENCIADO cumprir as obrigações fiscais, contábeis, tributárias e regulatórias relacionadas à sua
+            atividade e às vendas, inclusive emitir os documentos fiscais exigidos e declarar corretamente suas receitas.
+            O RevezaPix não substitui sistema fiscal, contábil, ERP ou emissor de nota fiscal.
+          </p>
+          <p className={paragraphClass}>
+            É proibido utilizar o sistema para fraude, lavagem de dinheiro, ocultação de receitas, sonegação, violação de
+            direitos de terceiros ou qualquer finalidade ilícita, bem como tentar obter acesso não autorizado, interferir
+            na segurança, realizar engenharia reversa ou utilizar o sistema para sobrecarregar ou prejudicar a plataforma.
+            O LICENCIANTE não valida a titularidade das chaves nem audita vendas ou declarações fiscais; essa limitação não
+            afasta responsabilidades que possam ser atribuídas a qualquer parte por lei.
           </p>
         </section>
 
         <section className={sectionClass}>
-          <h2 className={headingClass}>10. Aceite e condições específicas</h2>
+          <h2 className={headingClass}>10. Disponibilidade e limites de responsabilidade</h2>
+          <p className={paragraphClass}>
+            O LICENCIADO deve manter os registros necessários à sua operação e confirmar pagamentos diretamente na
+            instituição financeira. A disponibilidade pode ser afetada por internet, dispositivos, navegadores, serviços
+            bancários, Supabase, hospedagem, domínio, provedores de nuvem ou outros terceiros. A tela do cliente depende
+            de conexão e sincronização com o serviço configurado; atrasos ou interrupções podem ocorrer.
+          </p>
+          <p className={paragraphClass}>
+            Cada parte responde pelos atos e omissões que lhe sejam atribuíveis, nos limites da legislação aplicável.
+            Nenhuma disposição destes termos exclui responsabilidade ou direito que não possa ser legalmente afastado.
+            O LICENCIANTE não garante resultado comercial, economia determinada, disponibilidade ininterrupta, conclusão
+            de transferências Pix nem eliminação de erros operacionais.
+          </p>
+        </section>
+
+        <section className={sectionClass}>
+          <h2 className={headingClass}>11. Aceite e condições específicas</h2>
           <p className={paragraphClass}>
             A proposta, comprovante ou ordem de serviço deve registrar o preço da licença, a quantidade de caixas/terminais,
             o escopo da instalação e as condições específicas acordadas. Em caso de conflito, prevalecem as condições
             específicas assinadas pelas partes, sem afastar direitos obrigatórios previstos em lei.
+          </p>
+          <p className={paragraphClass}>
+            O aceite eletrônico é realizado pelo administrador autenticado do LICENCIADO mediante confirmação expressa.
+            O sistema registra a conta vinculada ao aceite, a versão destes termos e a data/hora do registro, sem registrar
+            o endereço IP para essa finalidade. O administrador declara ter poderes para aceitar em nome do LICENCIADO e
+            compromete-se a dar ciência destes termos aos operadores que utilizarem o sistema.
           </p>
           <div className="rounded-2xl border border-white/[.08] bg-white/[.025] p-4 text-sm leading-6 text-white/55">
             <p>Estabelecimento/licenciado: __________________________________________</p>
@@ -228,6 +278,25 @@ export default function TermsPage() {
             <p>Assinatura do LICENCIANTE: _________________________________________</p>
           </div>
         </section>
+
+        <section className={sectionClass}>
+          <h2 className={headingClass}>12. Suspensão, encerramento e disposições gerais</h2>
+          <p className={paragraphClass}>
+            Em caso de violação material destes termos, tentativa de fraude, acesso não autorizado ou risco à segurança,
+            o LICENCIANTE poderá limitar ou suspender o acesso na medida necessária para conter o risco. Quando razoável
+            e permitido, comunicará o motivo e dará oportunidade para correção antes do encerramento definitivo. Serão
+            observados o contrato, a legislação aplicável e eventuais direitos de reembolso ou reparação legalmente devidos;
+            não há renúncia antecipada a esses direitos.
+          </p>
+          <p className={paragraphClass}>
+            Estes termos são regidos pelas leis brasileiras. Fica eleito o foro da comarca de Brasília, Distrito Federal,
+            quando legalmente permitido, preservados os foros obrigatórios e os direitos de competência previstos na
+            legislação, inclusive nas relações de consumo.
+          </p>
+        </section>
+        <p className="border-t border-white/[.08] pt-4 text-xs text-white/35">
+          Versão {termsVersion} · Licenciante: PAULO SERGIO DE BRITO BANDEIRA LTDA, nome fantasia Tex-TrampoExpress.
+        </p>
       </article>
     </main>
   );

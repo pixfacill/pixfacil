@@ -15,6 +15,12 @@ create table if not exists public.administradores (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.licenca_aceites (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  terms_version text not null,
+  accepted_at timestamptz not null default now()
+);
+
 create table if not exists public.caixas (
   id uuid primary key default gen_random_uuid(),
   nome text not null check (char_length(nome) between 1 and 60),
@@ -182,6 +188,37 @@ as $$
   select exists (
     select 1 from public.administradores where user_id = auth.uid()
   );
+$$;
+
+create or replace function public.accept_software_terms(p_terms_version text)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  acceptance_time timestamptz;
+begin
+  if auth.uid() is null or not public.is_app_admin() then
+    raise exception 'Somente o administrador autenticado pode aceitar os termos.';
+  end if;
+  if p_terms_version is distinct from '2026-11-11-v1' then
+    raise exception 'A versão dos termos informada é inválida.';
+  end if;
+
+  insert into public.licenca_aceites (user_id, terms_version, accepted_at)
+  values (auth.uid(), p_terms_version, now())
+  on conflict (user_id) do update
+  set terms_version = excluded.terms_version,
+      accepted_at = case
+        when public.licenca_aceites.terms_version is distinct from excluded.terms_version
+          then excluded.accepted_at
+        else public.licenca_aceites.accepted_at
+      end
+  returning accepted_at into acceptance_time;
+
+  return acceptance_time;
+end;
 $$;
 
 create or replace function public.can_access_cashbox(p_box_id uuid)
@@ -504,6 +541,8 @@ grant execute on function public.claim_first_admin(uuid) to service_role;
 revoke all on function public.limpar_sessoes_pix() from public, anon, authenticated;
 grant execute on function public.owner_setup_available() to anon, authenticated;
 grant execute on function public.is_app_admin() to authenticated;
+revoke all on function public.accept_software_terms(text) from public, anon, authenticated;
+grant execute on function public.accept_software_terms(text) to authenticated;
 grant execute on function public.can_access_cashbox(uuid) to authenticated;
 revoke all on function public.save_cashbox_display_link(uuid, text) from public, anon;
 grant execute on function public.save_cashbox_display_link(uuid, text) to authenticated;
@@ -519,6 +558,8 @@ grant execute on function public.delete_cashbox(uuid) to authenticated;
 grant execute on function public.set_history_retention(integer) to authenticated;
 
 grant select, insert, update on public.administradores to authenticated;
+revoke all on public.licenca_aceites from public, anon, authenticated;
+grant select on public.licenca_aceites to authenticated;
 grant select, insert, update on public.caixas to authenticated;
 grant select on public.caixa_dispositivos to authenticated;
 grant select on public.caixa_chaves to authenticated;
@@ -537,6 +578,7 @@ revoke all on public.caixa_display_links from public, anon, authenticated;
 grant select on public.caixa_display_links to authenticated;
 
 alter table public.administradores enable row level security;
+alter table public.licenca_aceites enable row level security;
 alter table public.caixas enable row level security;
 alter table public.caixa_dispositivos enable row level security;
 alter table public.caixa_chaves enable row level security;
@@ -549,6 +591,11 @@ drop policy if exists "Owner administers admins" on public.administradores;
 create policy "Owner administers admins" on public.administradores
   for all to authenticated
   using (public.is_app_admin()) with check (public.is_app_admin());
+
+drop policy if exists "Owner reads own license acceptance" on public.licenca_aceites;
+create policy "Owner reads own license acceptance" on public.licenca_aceites
+  for select to authenticated
+  using (user_id = auth.uid() and public.is_app_admin());
 
 drop policy if exists "Owner or assigned device reads boxes" on public.caixas;
 create policy "Owner or assigned device reads boxes" on public.caixas
@@ -646,6 +693,7 @@ create policy "Owner updates settings" on public.configuracoes_sistema
   using (public.is_app_admin()) with check (public.is_app_admin());
 
 revoke all on public.administradores from anon;
+revoke all on public.licenca_aceites from anon;
 revoke all on public.caixas from anon;
 revoke all on public.caixa_dispositivos from anon;
 revoke all on public.caixa_chaves from anon;
